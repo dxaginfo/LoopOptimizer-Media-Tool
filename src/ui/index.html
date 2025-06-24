@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoopOptimizer - Media Automation Tool</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-logo">
+      <img src="assets/logo.svg" alt="LoopOptimizer Logo" class="logo">
+      <h1>LoopOptimizer</h1>
+    </div>
+    <nav class="header-nav">
+      <ul>
+        <li><a href="#" class="active" data-view="optimizer">Optimizer</a></li>
+        <li><a href="#" data-view="gallery">My Loops</a></li>
+        <li><a href="#" data-view="settings">Settings</a></li>
+      </ul>
+    </nav>
+    <div class="header-user">
+      <button id="loginBtn" class="btn btn-outline">Log In</button>
+      <div id="userProfile" class="user-profile hidden">
+        <img src="assets/default-avatar.png" alt="User" class="avatar">
+        <span class="username">User</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-content">
+    <!-- Optimizer View -->
+    <section id="optimizerView" class="view active">
+      <div class="container">
+        <div class="card upload-card">
+          <h2>Media Loop Optimizer</h2>
+          <p class="subtitle">Upload media to create perfect seamless loops</p>
+          
+          <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 4V16M12 4L8 8M12 4L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 20H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <p>Drag and drop your media file here<br>or <span class="link">browse files</span></p>
+            <p class="upload-hint">Supports MP4, WebM, MOV, GIF, MP3, WAV up to 100MB</p>
+            <input type="file" id="mediaFileInput" class="hidden" accept="video/*,audio/*,image/gif">
+          </div>
+
+          <div id="uploadProgress" class="progress-container hidden">
+            <div class="progress-bar">
+              <div class="progress-fill"></div>
+            </div>
+            <p class="progress-text">Uploading... <span class="progress-percentage">0%</span></p>
+          </div>
+        </div>
+
+        <div class="card settings-card">
+          <h3>Optimization Settings</h3>
+          
+          <div class="settings-group">
+            <label for="optimizationQuality">Quality Preference</label>
+            <div class="radio-group">
+              <label class="radio">
+                <input type="radio" name="quality" value="low" id="qualityLow">
+                <span>Low (Smaller Size)</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="quality" value="medium" id="qualityMedium" checked>
+                <span>Medium (Balanced)</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="quality" value="high" id="qualityHigh">
+                <span>High (Better Quality)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <label for="loopDuration">Target Loop Duration</label>
+            <div class="range-with-labels">
+              <span class="range-label">Short</span>
+              <input type="range" id="loopDuration" min="1" max="15" value="5" step="0.5">
+              <span class="range-label">Long</span>
+              <span class="range-value" id="loopDurationValue">5s</span>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <label for="transitionType">Loop Transition</label>
+            <select id="transitionType" class="select">
+              <option value="auto">Auto-detect (Recommended)</option>
+              <option value="crossfade">Crossfade</option>
+              <option value="cut">Hard Cut</option>
+              <option value="morph">Morph Transition</option>
+            </select>
+          </div>
+
+          <div class="settings-group">
+            <label>Advanced Options</label>
+            <div class="checkbox-group">
+              <label class="checkbox">
+                <input type="checkbox" id="preserveAspectRatio" checked>
+                <span>Preserve aspect ratio</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" id="audioFade" checked>
+                <span>Audio crossfade</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" id="autoOptimizeCompression" checked>
+                <span>Auto-optimize compression</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <label for="outputFormat">Output Format</label>
+            <select id="outputFormat" class="select">
+              <option value="mp4">MP4 Video</option>
+              <option value="webm">WebM Video</option>
+              <option value="gif">GIF Animation</option>
+              <option value="mp3">MP3 Audio (audio only)</option>
+            </select>
+          </div>
+
+          <button id="optimizeBtn" class="btn btn-primary btn-full">Optimize Loop</button>
+        </div>
+
+        <div id="resultCard" class="card result-card hidden">
+          <h3>Optimized Loop</h3>
+          
+          <div class="result-preview">
+            <div id="previewContainer" class="preview-container">
+              <!-- Video/audio player will be injected here -->
+            </div>
+            
+            <div class="preview-controls">
+              <button class="btn btn-icon" id="playPauseBtn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                </svg>
+              </button>
+              <button class="btn btn-icon" id="muteBtn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M15.5 8.5C15.5 8.5 17 10 17 12C17 14 15.5 15.5 15.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M11 5L6 9H2V15H6L11 19V5Z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <div class="result-info">
+            <div class="info-group">
+              <span class="info-label">Duration</span>
+              <span class="info-value" id="loopDurationResult">5.0s</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">File Size</span>
+              <span class="info-value" id="fileSizeResult">2.5 MB</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Seamless Score</span>
+              <span class="info-value score" id="seamlessScoreResult">92%</span>
+            </div>
+          </div>
+          
+          <div class="result-actions">
+            <button class="btn btn-primary" id="downloadBtn">Download</button>
+            <button class="btn btn-outline" id="saveToAccountBtn">Save to Account</button>
+            <button class="btn btn-text" id="createNewBtn">Create New Loop</button>
+          </div>
+
+          <div class="optimization-details">
+            <h4>Optimization Details</h4>
+            <div class="details-item">
+              <span class="details-label">Loop Points</span>
+              <span class="details-value" id="loopPointsResult">00:01.25 - 00:06.25</span>
+            </div>
+            <div class="details-item">
+              <span class="details-label">Transition</span>
+              <span class="details-value" id="transitionResult">Crossfade (0.5s)</span>
+            </div>
+            <div class="details-item">
+              <span class="details-label">Original Size</span>
+              <span class="details-value" id="originalSizeResult">10.2 MB</span>
+            </div>
+            <div class="details-item">
+              <span class="details-label">Compression Ratio</span>
+              <span class="details-value" id="compressionRatioResult">75.5%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gallery View -->
+    <section id="galleryView" class="view hidden">
+      <div class="container">
+        <div class="view-header">
+          <h2>My Loops</h2>
+          <div class="view-actions">
+            <div class="search-bar">
+              <input type="text" placeholder="Search loops..." id="searchLoops">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <select id="sortLoops" class="select">
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="size-asc">Size (Smallest)</option>
+              <option value="size-desc">Size (Largest)</option>
+              <option value="quality">Highest Quality</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="loginPrompt" class="card centered-card">
+          <h3>Sign in to view your loops</h3>
+          <p>Log in to access your saved loops and optimization history</p>
+          <button class="btn btn-primary" id="galleryLoginBtn">Log In</button>
+        </div>
+
+        <div id="loopsGrid" class="loops-grid hidden">
+          <!-- Loop items will be generated here -->
+          <div class="loop-item">
+            <div class="loop-preview">
+              <video src="assets/sample-loop.mp4" loop muted autoplay></video>
+            </div>
+            <div class="loop-info">
+              <h4>Beach Sunset Loop</h4>
+              <span class="loop-meta">4.2s • 1.8MB • June 23, 2025</span>
+            </div>
+            <div class="loop-actions">
+              <button class="btn btn-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 16V17C3 18.1046 3.89543 19 5 19H19C20.1046 19 21 18.1046 21 17V16M16 12L12 16M12 16L8 12M12 16V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button class="btn btn-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 12H19M12 5V19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings View -->
+    <section id="settingsView" class="view hidden">
+      <div class="container">
+        <div class="view-header">
+          <h2>Settings</h2>
+        </div>
+
+        <div class="card">
+          <h3>Account Settings</h3>
+          
+          <div id="accountLoginPrompt">
+            <p>Log in to access account settings and synchronize your loops across devices</p>
+            <button class="btn btn-primary" id="settingsLoginBtn">Log In</button>
+          </div>
+          
+          <div id="accountSettings" class="hidden">
+            <div class="settings-group">
+              <label for="displayName">Display Name</label>
+              <input type="text" id="displayName" class="input" placeholder="Your name">
+            </div>
+            
+            <div class="settings-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" class="input" disabled>
+            </div>
+            
+            <div class="settings-group">
+              <button class="btn btn-outline" id="changePasswordBtn">Change Password</button>
+              <button class="btn btn-outline btn-danger" id="logoutBtn">Log Out</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Default Optimization Settings</h3>
+          
+          <div class="settings-group">
+            <label for="defaultQuality">Default Quality</label>
+            <select id="defaultQuality" class="select">
+              <option value="low">Low (Smaller Size)</option>
+              <option value="medium" selected>Medium (Balanced)</option>
+              <option value="high">High (Better Quality)</option>
+            </select>
+          </div>
+          
+          <div class="settings-group">
+            <label for="defaultFormat">Default Output Format</label>
+            <select id="defaultFormat" class="select">
+              <option value="mp4" selected>MP4 Video</option>
+              <option value="webm">WebM Video</option>
+              <option value="gif">GIF Animation</option>
+              <option value="mp3">MP3 Audio (audio only)</option>
+            </select>
+          </div>
+          
+          <div class="settings-group">
+            <label>Default Options</label>
+            <div class="checkbox-group">
+              <label class="checkbox">
+                <input type="checkbox" id="defaultPreserveAspectRatio" checked>
+                <span>Preserve aspect ratio</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" id="defaultAudioFade" checked>
+                <span>Audio crossfade</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" id="saveOriginals">
+                <span>Save original media with optimized loops</span>
+              </label>
+            </div>
+          </div>
+          
+          <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+        </div>
+        
+        <div class="card">
+          <h3>API Integration</h3>
+          
+          <div class="settings-group">
+            <label for="geminiApiKey">Gemini API Key</label>
+            <div class="input-with-button">
+              <input type="password" id="geminiApiKey" class="input" placeholder="Enter your Gemini API key">
+              <button class="btn btn-text" id="showHideApiKeyBtn">Show</button>
+            </div>
+            <p class="help-text">Required for advanced AI-powered loop optimization</p>
+          </div>
+          
+          <div class="settings-group">
+            <label for="googleCloudStorageConfig">Google Cloud Storage</label>
+            <textarea id="googleCloudStorageConfig" class="textarea" placeholder='{"project": "your-project", "bucket": "your-bucket"}'></textarea>
+            <p class="help-text">Optional: Configure custom Google Cloud Storage</p>
+          </div>
+          
+          <button class="btn btn-primary" id="saveApiSettingsBtn">Save API Settings</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>Log In</h3>
+        <button class="btn btn-icon modal-close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-content">
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="login">Log In</button>
+          <button class="auth-tab" data-tab="signup">Sign Up</button>
+        </div>
+        
+        <div id="loginTab" class="auth-form active">
+          <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" class="input" placeholder="your@email.com">
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" class="input" placeholder="Your password">
+          </div>
+          <button class="btn btn-primary btn-full" id="submitLoginBtn">Log In</button>
+          <p class="auth-option"><a href="#" id="forgotPasswordLink">Forgot password?</a></p>
+        </div>
+        
+        <div id="signupTab" class="auth-form hidden">
+          <div class="form-group">
+            <label for="signupName">Full Name</label>
+            <input type="text" id="signupName" class="input" placeholder="Your name">
+          </div>
+          <div class="form-group">
+            <label for="signupEmail">Email</label>
+            <input type="email" id="signupEmail" class="input" placeholder="your@email.com">
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">Password</label>
+            <input type="password" id="signupPassword" class="input" placeholder="Create a password">
+          </div>
+          <button class="btn btn-primary btn-full" id="submitSignupBtn">Create Account</button>
+        </div>
+        
+        <div class="auth-divider">
+          <span>or</span>
+        </div>
+        
+        <div class="social-auth">
+          <button class="btn btn-social btn-google">
+            <img src="assets/google-logo.svg" alt="Google">
+            <span>Continue with Google</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Processing Modal -->
+  <div id="processingModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-container">
+      <div class="modal-content centered-content">
+        <div class="loading-spinner"></div>
+        <h3>Optimizing Your Loop</h3>
+        <p id="processingStatus">Analyzing media for optimal loop points...</p>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: 45%"></div>
+          </div>
+          <p class="progress-text">Step 2 of 4</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
